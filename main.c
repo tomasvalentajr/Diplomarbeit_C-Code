@@ -14,7 +14,8 @@ Für die Kompilierung dieses Programms wird empfohlen die voreingestellte Visual
 #include <math.h>
 #include <time.h>
 #include "string.h"
-
+#include "hardware/gpio.h"
+#define LED_PIN 25
 
 // Pico SDK headers
 #include "pico/stdlib.h"
@@ -39,12 +40,17 @@ void getPosition(float* freq) {
     printf("l1/l2 =%f\n", distRatio);
 }
 
+void LED_ON() {
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+    gpio_put(LED_PIN, 1);
+}
 
 int main() {
     stdio_init_all();
 
-    sleep_ms(500);
-
+    sleep_ms(2000);
+    LED_ON();
     ADC_Init();
     //printf("adc_init() \n"); //ADC_Init done
     
@@ -57,10 +63,12 @@ int main() {
     float freqBins2[N] = {0};    
     float freqBins3[N] = {0};        
     float freqBins4[N] = {0};        
-
+    int distance = 100;
+    int angle = 0;
     //ADC_MonitorData(); //for monitoring the ADC Values without 
-    for(int q = 0; q < 10; q++) {
+    for(int q = 1; q < 3; q++) {
         ADC_CollectData(adcData1, adcData2, adcData3, adcData4, N); //collect ADC Values for FFT
+        /*printf("Versuch %d: Abstand %d mm, Winkel %d deg", q, distance, angle);
         printf("ADC Data\n");
         printf("Sensor 1\n");
         for(int x = 0; x < N; x++) {
@@ -77,9 +85,9 @@ int main() {
         printf("Sensor 4\n");
         for(int x = 0; x < N; x++) {
             printf("%f\n", adcData4[x]);
-        };
+        };*/
         fft(adcData1, adcData2, adcData3, adcData4, freqBins1, freqBins2, freqBins3, freqBins4); //calculate FFT for the ADC values
-        printf("Frequenzbereich 1\n");
+        /*printf("Frequenzbereich 1\n");
         for(int x = 0; x < N; x++) {
             printf("%f\n", freqBins1[x]);
         };
@@ -94,16 +102,16 @@ int main() {
         printf("Frequenzbereich 4\n");
         for(int x = 0; x < N; x++) {
             printf("%f\n", freqBins4[x]);
-        };
+        };*/
         int binNum = 139; //Frequency bin of the IR-source
-        printf("Amplituden des Frequenzbins");
+        printf("Amplituden der Frequenzbins\n");
         printf("%f\n", freqBins1[binNum]);
         printf("%f\n", freqBins2[binNum]);
         printf("%f\n", freqBins3[binNum]);
         printf("%f\n", freqBins4[binNum]);
 
-        sleep_ms(150); //wait 150ms before making a new measurement
+        //sleep_ms(150); //wait 150ms before making a new measurement
     }
-    //printf("10 Meassurements were collected\n"); //sign, that 20 FFTs have been alculated
+    printf("2 Meassurements were collected\n"); //sign, that 10 FFTs have been alculated
         
 }

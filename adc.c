@@ -27,7 +27,6 @@ uint8_t tx_data[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t rx_data[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 uint32_t adc_data[4];
-uint32_t ADC_CollData[N];
 int len = 18;
 
 static const uint8_t REG_MODE = 0x02;
@@ -57,7 +56,7 @@ uint16_t ADC_CONFIG_MODE =
         0b01  << 8  |   // 9:8      Data word length selection: 24 bit
         0b000 << 5  |   // 7:5      Reserved
         0b0   << 4  |   // 4        SPI Timeout enable
-        0b00  << 2  |   // 3:2      DRDY pin signal source selection - 01b = the first one
+        0b00  << 2  |   // 3:2      DRDY pin signal source selection - 00b = most lagging enabled channel
         0b0   << 1  |   // 1        DRDY pin state when conversion data is not available - high
         0b0;            // 0        DRDY signal format when conversion data is available - low when data available till all data shifted
 
@@ -112,6 +111,9 @@ static void ADC_ExchangeData(int len)
     gpio_put(PIN_CS, 0);       // 8,33 ns per instruction vs. 16 ns min delay
     sleep_us(1);
     spi_write_read_blocking(spi1, tx_data, rx_data, len);
+    /*for(int x = 0; x < len; x += 3) {
+            printf("%x %x %x\n", rx_data[x], rx_data[x+1], rx_data[x+2]);
+    };*/
     sleep_us(1);
     gpio_put(PIN_CS, 1);
 }
@@ -119,6 +121,7 @@ static void ADC_ExchangeData(int len)
 bool ADC_ConvertResults(void)
 {
     uint8_t* offset = rx_data + 3;
+    //printf("%x \n", offset);
     for (int ch = 0; ch < 4; ch++)
     {
         adc_data[ch] = int24(offset);
@@ -133,7 +136,7 @@ void ADC_Init(void)
     spi_init(spi1, 5208333); 
 
     // Start external clock for ADC
-    clock_gpio_init(PIN_CLKIN, CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, 24);       // 125 MHz sys clock / 24 = 5,2 MHz
+    clock_gpio_init(PIN_CLKIN, CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, 118);       // 125 MHz sys clock / 24 = 5,2 MHz
     gpio_set_function(PIN_CLKIN, GPIO_FUNC_GPCK);
 
     gpio_set_function(PIN_SCLK, GPIO_FUNC_SPI);
@@ -221,7 +224,7 @@ uint32_t ADC_GetRaw(size_t ch)
 
 void ADC_CollectData(int32_t* arr1, int32_t* arr2, int32_t* arr3, int32_t* arr4, int amount)
 {   
-    //printf("ADC_CollectData started \n");
+    printf("ADC_CollectData started \n");
     for (int i = 0; i < amount; i++)
     {
         
@@ -238,7 +241,7 @@ void ADC_CollectData(int32_t* arr1, int32_t* arr2, int32_t* arr3, int32_t* arr4,
         int32_t ph2 = ADC_GetRaw(1);
         int32_t ph3 = ADC_GetRaw(2);
         int32_t ph4 = ADC_GetRaw(3);
-
+        printf("ph1: %d, ph2: %d, ph3: %d, ph4: %d ;\n", ph1, ph2, ph3, ph4);
         arr1[i] = ph1;
         arr2[i] = ph2;
         arr3[i] = ph3;
