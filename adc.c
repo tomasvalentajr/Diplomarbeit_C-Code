@@ -22,11 +22,16 @@
 #define PIN_DRDY 14
 #define PIN_RST 15
 #define PIN_CLKIN 21
+#define MAX_ADC_VALUE 0x7FFFFF
+#define MIN_ADC_VALUE 0x800000
+#define MAX_VOLTAGE 1.2
+#define MIN_VOLTAGE -1.2
 
 uint8_t tx_data[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 uint8_t rx_data[18] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-uint32_t adc_data[4];
+
+int32_t adc_data[4] = {0, 0, 0, 0};
 int len = 18;
 
 static const uint8_t REG_MODE = 0x02;
@@ -69,25 +74,25 @@ uint16_t ADC_CONFIG_CH0_CFG =
         0x0000000000  << 6  |   // 15:6     Chanel 0 phase delay
         0b000   << 3  |   // 5:3        Reserved
         0b1 << 2  |   // 2      Disable DC Block filter
-        0b10;           // 1:0      Chanel 0 input selection - positive DC test signal
+        0b00;           // 1:0      Chanel 0 input selection - positive DC test signal
 
 uint16_t ADC_CONFIG_CH1_CFG = 
         0x0000000000  << 6  |   // 15:6     Chanel 1 phase delay
         0b000   << 3  |   // 5:3        Reserved
         0b1 << 2  |   // 2      Disable DC Block filter
-        0b10;           // 1:0      Chanel 1 input selection - positive DC test signal
+        0b00;           // 1:0      Chanel 1 input selection - positive DC test signal
 
 uint16_t ADC_CONFIG_CH2_CFG = 
         0x0000000000  << 6  |   // 15:6     Chanel 2 phase delay
         0b000   << 3  |   // 5:3        Reserved
         0b1 << 2  |   // 2      Disable DC Block filter
-        0b10;           // 1:0      Chanel 2 input selection - positive DC test signal
+        0b00;           // 1:0      Chanel 2 input selection - positive DC test signal
 
 uint16_t ADC_CONFIG_CH3_CFG = 
         0x0000000000  << 6  |   // 15:6     Chanel 3 phase delay
         0b000   << 3  |   // 5:3        Reserved
         0b1 << 2  |   // 2      Disable DC Block filter
-        0b10;           // 1:0      Chanel 3 input selection - positive DC test signal
+        0b00;           // 1:0      Chanel 3 input selection - positive DC test signal
 
 static void ADC_SetCommand(uint16_t command)
 {
@@ -125,6 +130,7 @@ bool ADC_ConvertResults(void)
     for (int ch = 0; ch < 4; ch++)
     {
         adc_data[ch] = int24(offset);
+        //printf("%d \n", adc_data[ch]);
         offset +=3;
     }
     return true;
@@ -136,7 +142,7 @@ void ADC_Init(void)
     spi_init(spi1, 5208333); 
 
     // Start external clock for ADC
-    clock_gpio_init(PIN_CLKIN, CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, 118);       // 125 MHz sys clock / 24 = 5,2 MHz
+    clock_gpio_init(PIN_CLKIN, CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS, 24);       // 125 MHz sys clock / 24 = 5,2 MHz
     gpio_set_function(PIN_CLKIN, GPIO_FUNC_GPCK);
 
     gpio_set_function(PIN_SCLK, GPIO_FUNC_SPI);
@@ -160,17 +166,20 @@ void ADC_Init(void)
     ADC_WriteRegister(REG_CLOCK, ADC_CONFIG_CLOCK); //Configure ADC
     ADC_WriteRegister(REG_THRSHLD_LSB, ADC_CONFIG_THRSHLD_LSB); //disable DC-Block Filter
     ADC_WriteRegister(REG_CH0_CFG, ADC_CONFIG_CH0_CFG); //set channel 0 input selection to positive DC test signal
+    sleep_ms(1);
     ADC_WriteRegister(REG_CH1_CFG, ADC_CONFIG_CH1_CFG); //set channel 1 input selection to positive DC test signal
+    sleep_ms(1);
     ADC_WriteRegister(REG_CH2_CFG, ADC_CONFIG_CH2_CFG); //set channel 2 input selection to positive DC test signal
+    sleep_ms(1);
     ADC_WriteRegister(REG_CH3_CFG, ADC_CONFIG_CH3_CFG); //set channel 3 input selection to positive DC test signal
     sleep_ms(1);
     
-    //Resync by pulsing shorter than t_W(RSL) (2048 * t_clkin = 82 ms) but longer than one clkin (40 us @ 25 kHz) -> 200 us should be ok
+    //Resync by pulsing shorter than t_W(RSL) (2048 * t_clkin = 2 ms) but longer than one clkin (950 ns @ 1,049 MHz) -> 200 us should be ok
     gpio_put(PIN_RST, 0);
     sleep_us(200);
     gpio_put(PIN_RST, 1);
     //printf("Resync Done \n");
-    //Reset by pulsing longer than t_W(RSL) (2048 * t_clkin = 82 ms) -> 150 ms should be ok
+    //Reset by pulsing longer than t_W(RSL) (2048 * t_clkin = 2 ms) -> 150 ms should be ok
     gpio_put(PIN_RST, 0);
     sleep_ms(150);
     gpio_put(PIN_RST, 1);
@@ -217,17 +226,24 @@ bool ADC_CheckData(void)
 }
 
 
-uint32_t ADC_GetRaw(size_t ch)
+int32_t ADC_GetRaw(size_t ch)
 {
     return adc_data[ch];
 }
 
 void ADC_CollectData(int32_t* arr1, int32_t* arr2, int32_t* arr3, int32_t* arr4, int amount)
 {   
-    printf("ADC_CollectData started \n");
+    //printf("ADC_CollectData started \n");
+    //Resync by pulsing shorter than t_W(RSL) (2048 * t_clkin = 2 ms) but longer than one clkin (950 ns @ 1,049 MHz) -> 200 us should be ok
+    gpio_put(PIN_RST, 0);
+    sleep_us(200);
+    gpio_put(PIN_RST, 1);
+    sleep_ms(100);
+    gpio_put(PIN_RST, 0);
+    sleep_ms(150);
+    gpio_put(PIN_RST, 1);
     for (int i = 0; i < amount; i++)
     {
-        
         while (gpio_get(PIN_DRDY) == true) //&& x < 40000000 
         {
             //wait for new data
@@ -241,12 +257,16 @@ void ADC_CollectData(int32_t* arr1, int32_t* arr2, int32_t* arr3, int32_t* arr4,
         int32_t ph2 = ADC_GetRaw(1);
         int32_t ph3 = ADC_GetRaw(2);
         int32_t ph4 = ADC_GetRaw(3);
-        printf("ph1: %d, ph2: %d, ph3: %d, ph4: %d ;\n", ph1, ph2, ph3, ph4);
+        ph1 = ADC_toVoltage(ph1);
+        ph2 = ADC_toVoltage(ph2);
+        ph3 = ADC_toVoltage(ph3);
+        ph4 = ADC_toVoltage(ph4);
+        //printf("ph1: %d uV, ph2: %d uV, ph3: %d uV, ph4: %d uV;\n", ph1, ph2, ph3, ph4);
         arr1[i] = ph1;
         arr2[i] = ph2;
         arr3[i] = ph3;
         arr4[i] = ph4; 
-
+        
         /*if(i < 3){
             arr1[i] = ph1;
             arr2[i] = ph2;
@@ -285,4 +305,17 @@ void ADC_MonitorData()
     data = ADC_GetRaw(0);
     printf("%d \n", data);
     sleep_ms(500);
+}
+
+float ADC_toVoltage (int32_t adc_value){
+    float voltage;
+    //Check if the value is positive - between 000000h and 7FFFFFh
+    if(adc_value <= MAX_ADC_VALUE){
+        voltage = (adc_value / (float)MAX_ADC_VALUE) * MAX_VOLTAGE * 1000000;
+    } else {
+        //Convert negative value to positive and then calculate voltage. Negative values are from FFFFFFh to 800000h
+        voltage = -(((adc_value - (float)(MAX_ADC_VALUE)) / (float)(MAX_ADC_VALUE)) * MAX_VOLTAGE) * 1000000; //taking the real value  received from the ADC - negative numbers allowed
+        //voltage = (((adc_value - (float)(MAX_ADC_VALUE)) / (float)(MAX_ADC_VALUE)) * MAX_VOLTAGE) * 1000000; //taking the abolute value - no negative numbers
+    }
+    return voltage;
 }

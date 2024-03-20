@@ -28,9 +28,9 @@ bool ADC_WriteRegister(uint8_t reg, uint16_t val);
 
 bool ADC_CheckData(void);
 
-uint32_t ADC_GetRaw(size_t ch);
+int32_t ADC_GetRaw(size_t ch);
 void ADC_CollectData(int32_t* arr1, int32_t* arr2, int32_t* arr3, int32_t* arr4, int amount);
 void ADC_MonitorData(void);
-
+float ADC_toVoltage (int32_t adc_value);
 
 #endif /* ADC_H */
