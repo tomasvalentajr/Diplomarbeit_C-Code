@@ -96,9 +96,9 @@ uint16_t ADC_CONFIG_CH3_CFG =
         0b00;           // 1:0      Chanel 3 input selection - positive DC test signal
 */
 
-static uint32_t toInt24(uint8_t* data) {
+static int32_t toInt24(uint8_t* data) {
 
-    uint32_t ret = (*data << 16 | *(data + 1) << 8 | *(data + 2));
+    int32_t ret = (*data << 16 | *(data + 1) << 8 | *(data + 2));
 
     // For negative numbers (bit 23 set): Convert from 24-bit 1s complement to 32-bit by setting the top byte to 0xff
     printf("%x \n", ret);
